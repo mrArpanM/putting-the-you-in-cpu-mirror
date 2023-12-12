@@ -1,24 +1,31 @@
 {
-	"name": "putting-the-you-in-cpu",
-	"version": "0.0.1",
-	"private": true,
-	"license": "MIT",
-	"scripts": {
-		"dev": "astro dev",
-		"build": "astro build",
-		"preview": "astro preview"
-	},
-	"devDependencies": {
-		"@astrojs/mdx": "^0.18.2",
-		"@astrojs/sitemap": "^1.2.1",
-		"@astrojs/vercel": "^3.2.1",
-		"@types/jsdom": "^21.1.1",
-		"astro": "^2.1.8",
-		"jsdom": "^22.1.0",
-		"postcss-nesting": "^11.2.2",
-		"puppeteer": "^21.0.2",
-		"rehype-external-links": "^2.0.1",
-		"rehype-preset-minify": "^6.0.0",
-		"shiki": "^0.14.2"
-	}
+  "name": "nextra-docs-template",
+  "version": "0.0.1",
+  "description": "Nextra docs template",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shuding/nextra-docs-template.git"
+  },
+  "author": "Shu Ding <g@shud.in>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shuding/nextra-docs-template/issues"
+  },
+  "homepage": "https://github.com/shuding/nextra-docs-template#readme",
+  "dependencies": {
+    "next": "^13.0.6",
+    "nextra": "latest",
+    "nextra-theme-docs": "latest",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "18.11.10",
+    "typescript": "^4.9.3"
+  }
 }

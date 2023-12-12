@@ -1,0 +1,19 @@
+{
+  "index": {
+    "title": "Introduction",
+    "display": "hidden"
+  },
+  "1": "The Basics",
+  "2": "Slice Dat Time",
+  "3": "How to Run a Program",
+  "4": "Becoming an Elf-Lord",
+  "5": "The Translator in Your Computer",
+  "6": "Let's Talk About Forks and Cows",
+  "7": "Epilogue",
+  "source": {
+    "title": "Go to Source ↗",
+    "type": "page",
+    "href": "https://cpu.land",
+    "newWindow": true
+  }
+}

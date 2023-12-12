@@ -1,12 +1,4 @@
----
-chapter: 3
-title: How to Run a Program
-shortname: Exec
-slug: how-to-run-a-program
-updatedAt: 2023-07-24T15:57:08.044Z
----
-
-import CodeBlock from '../../components/CodeBlock.astro'
+# Chapter 3: How to Run a Program
 
 So far, we've covered how CPUs execute machine code loaded from executables, what ring-based security is, and how syscalls work. In this section, we'll dive deep into the Linux kernel to figure out how programs are loaded and run in the first place.
 
@@ -19,7 +11,7 @@ Most of what we learn will generalize well to other operating systems and archit
 
 ## Basic Behavior of Exec Syscalls
 
-<img src='/images/linux-program-execution-process.png' loading='eager' style='max-width: 600px; margin: 0 auto;' alt='A flowchart demonstrating exec syscalls. On the left, a group of flowchart items labeled "user space," on the right, a group labeled "kernel space." Starting in the user space group: the user runs ./file.bin in their terminal, which then runs the syscall execve("./file.bin", ...). This flows to the SYSCALL instruction being executed, which then points to the first item in the kernel space group: "Load and set up a binary" which points to "Try a binfmt." If the binfmt is supported, it starts the new process (replacing the current). If not, it tries the binfmt again.' width='917' height='424' />
+<img src='/images/linux-program-execution-process.png' loading='eager' alt='A flowchart demonstrating exec syscalls. On the left, a group of flowchart items labeled "user space," on the right, a group labeled "kernel space." Starting in the user space group: the user runs ./file.bin in their terminal, which then runs the syscall execve("./file.bin", ...). This flows to the SYSCALL instruction being executed, which then points to the first item in the kernel space group: "Load and set up a binary" which points to "Try a binfmt." If the binfmt is supported, it starts the new process (replacing the current). If not, it tries the binfmt again.' width='917' height='424' />
 
 Let's start with a very important system call: `execve`. It loads a program and, if successful, replaces the current process with that program. A couple other syscalls (`execlp`, `execvpe`, etc.) exist, but they all layer on top of `execve` in various fashions.
 
@@ -31,11 +23,11 @@ Let's start with a very important system call: `execve`. It loads a program and,
 
 The call signature of `execve` is:
 
-<CodeBlock>
+ 
 ```c
 int execve(const char *filename, char *const argv[], char *const envp[]);
 ```
-</CodeBlock>
+ 
 
 - The `filename` argument specifies a path to the program to run.
 - `argv` is a null-terminated (meaning the last item is a null pointer) list of arguments to the program. The `argc` argument you'll commonly see passed to C main functions is actually calculated later by the syscall, thus the null-termination.
@@ -49,7 +41,6 @@ Interestingly, `execve` does have some code that assumes `argv[0]` is the progra
 
 We already know how syscalls work, but we've never seen a real-world code example! Let's look at the Linux kernel's source code to see how `execve` is defined under the hood:
 
-<CodeBlock name='fs/exec.c' startLine={2105} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/fs/exec.c#L2105-L2111'>
 ```c
 SYSCALL_DEFINE3(execve,
 		const char __user *, filename,
@@ -59,7 +50,7 @@ SYSCALL_DEFINE3(execve,
 	return do_execve(getname(filename), argv, envp);
 }
 ```
-</CodeBlock>
+ 
 
 `SYSCALL_DEFINE3` is a macro for defining a 3-argument system call's code.
 
@@ -67,7 +58,6 @@ SYSCALL_DEFINE3(execve,
 
 The filename argument is passed to a `getname()` function, which copies the string from user space to kernel space and does some usage tracking things. It returns a `filename` struct, which is defined in `include/linux/fs.h`. It stores a pointer to the original string in user space as well as a new pointer to the value copied to kernel space:
 
-<CodeBlock name='include/linux/fs.h' startLine={2294} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/include/linux/fs.h#L2294-L2300'>
 ```c
 struct filename {
 	const char		*name;	/* pointer to actual string */
@@ -77,13 +67,12 @@ struct filename {
 	const char		iname[];
 };
 ```
-</CodeBlock>
+ 
 
 The `execve` system call then calls a `do_execve()` function. This, in turn, calls `do_execveat_common()`with some defaults. The `execveat` syscall which I mentioned earlier also calls `do_execveat_common()`, but passes through more user-provided options.
 
 In the below snippet, I've included the definitions of both `do_execve` and `do_execveat`:
 
-<CodeBlock name='fs/exec.c' startLine={2028} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/fs/exec.c#L2028-L2046'>
 ```c
 static int do_execve(struct filename *filename,
 	const char __user *const __user *__argv,
@@ -105,7 +94,7 @@ static int do_execveat(int fd, struct filename *filename,
 	return do_execveat_common(fd, filename, argv, envp, flags);
 }
 ```
-</CodeBlock>
+ 
 
 \[spacing sic\]
 
@@ -128,20 +117,18 @@ The first major job of `do_execveat_common` is setting up a struct called `linux
 
 Let's take a closer look at this buffer `buf`:
 
-<CodeBlock name='linux_binprm @ include/linux/binfmts.h' startLine={64} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/include/linux/binfmts.h#L64'>
 ```c
 	char buf[BINPRM_BUF_SIZE];
 ```
-</CodeBlock>
+ 
 
 As we can see, its length is defined as the constant `BINPRM_BUF_SIZE`. By searching the codebase for this string, we can find a definition for this in `include/uapi/linux/binfmts.h`:
 
-<CodeBlock name='include/uapi/linux/binfmts.h' startLine={18} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/include/uapi/linux/binfmts.h#L18-L19'>
 ```c
 /* sizeof(linux_binprm->buf) */
 #define BINPRM_BUF_SIZE 256
 ```
-</CodeBlock>
+ 
 
 So, the kernel loads the opening 256 bytes of the executed file into this memory buffer.
 
@@ -169,23 +156,21 @@ Of the many formats Linux supports, `binfmt_script` is the first I want to speci
 
 Have you ever read or written a [shebang](https://en.wikipedia.org/wiki/Shebang_(Unix))? That line at the start of some scripts that specifies the path to the interpreter?
 
-<CodeBlock startLine={1}>
 ```bash
 #!/bin/bash
 ```
-</CodeBlock>
+ 
 
 I always just assumed these were handled by the shell, but no! Shebangs are actually a feature of the kernel, and scripts are executed with the same syscalls as every other program. Computers are *so cool*.
 
 Take a look at how `fs/binfmt_script.c` checks if a file starts with a shebang:
 
-<CodeBlock name='load_script @ fs/binfmt_script.c' startLine={40} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/fs/binfmt_script.c#L40-L42'>
 ```c
 	/* Not ours to exec if we don't start with "#!". */
 	if ((bprm->buf[0] != '#') || (bprm->buf[1] != '!'))
 		return -ENOEXEC;
 ```
-</CodeBlock>
+ 
 
 If the file does start with a shebang, the binfmt handler then reads the interpreter path and any space-separated arguments after the path. It stops when it hits either a newline or the end of the buffer.
 
@@ -195,13 +180,13 @@ There are two interesting, wonky things going on here.
 
 During my research, I read an article that described the buffer as 128 bytes long. At some point after that article was published, the length was doubled to 256 bytes! Curious why, I checked the Git blame — a log of everybody who edited a certain line of code — for the line where `BINPRM_BUF_SIZE` is defined in the Linux source code. Lo and behold...
 
-<img src='/images/binprm-buf-changelog.png' loading='lazy' style='max-width: 550px;' alt='A screenshot of a Git blame window from the Visual Studio Code editor. The git blame shows the line "#define BINPRM_BUF_SIZE 128" being changed to 256. The commit is by Oleg Nesterov, and the main text is "exec: increase BINPRM_BUF_SIZE to 256. Large enterprise clients often run applications out of networked file systems where the IT mandated layout of project volumes can end up leading to paths that are longer than 128 characters.  Bumping this up to the next order of two solves this problem in all but the most egregious case while still fitting into a 512b slab." The commit is signed off by Linus Torvalds, among others.' width='942' height='968' />
+<img src='/images/binprm-buf-changelog.png' loading='lazy' alt='A screenshot of a Git blame window from the Visual Studio Code editor. The git blame shows the line "#define BINPRM_BUF_SIZE 128" being changed to 256. The commit is by Oleg Nesterov, and the main text is "exec: increase BINPRM_BUF_SIZE to 256. Large enterprise clients often run applications out of networked file systems where the IT mandated layout of project volumes can end up leading to paths that are longer than 128 characters.  Bumping this up to the next order of two solves this problem in all but the most egregious case while still fitting into a 512b slab." The commit is signed off by Linus Torvalds, among others.' width='942' height='968' />
 
 COMPUTERS ARE SO COOL!
 
 Since shebangs are handled by the kernel, and pull from `buf` instead of loading the whole file, they're *always* truncated to the length of `buf`. Apparently, 4 years ago, someone got annoyed by the kernel truncating their >128-character paths, and their solution was to double the truncation point by doubling the buffer size! Today, on your very own Linux machine, if you have a shebang line more than 256 characters long, everything past 256 characters will be *completely lost*.
 
-<img src='/images/linux-shebang-truncation.png' loading='lazy' style='max-width: 500px;' alt='A diagram depicting shebang truncation. A large array of bytes from a file named file.bin. The first 256 bytes are highlighted and labeled "Loaded into buf," while the remaining bytes are translucent and labeled "Ignored, past 256 bytes."' width='730' height='548' />
+<img src='/images/linux-shebang-truncation.png' loading='lazy' alt='A diagram depicting shebang truncation. A large array of bytes from a file named file.bin. The first 256 bytes are highlighted and labeled "Loaded into buf," while the remaining bytes are translucent and labeled "Ignored, past 256 bytes."' width='730' height='548' />
 
 Imagine having a bug because of this. Imagine trying to figure out the root cause of what's breaking your code. Imagine how it would feel, discovering that the problem is deep within the Linux kernel. Woe to the next IT person at a massive enterprise who discovers that part of a path has mysteriously gone missing.
 
@@ -218,28 +203,27 @@ It just so happens that `binfmt_script` is one of those places that *assumes* `a
 
 Let's look at a sample `execve` call:
 
-<CodeBlock>
+ 
 ```c
 // Arguments: filename, argv, envp
 execve("./script", [ "A", "B", "C" ], []);
 ```
-</CodeBlock>
+ 
 
 This hypothetical `script` file has the following shebang as its first line:
 
-<CodeBlock name='script' startLine={1}>
 ```js
 #!/usr/bin/node --experimental-module
 ```
-</CodeBlock>
+ 
 
 The modified `argv` finally passed to the Node interpreter will be:
 
-<CodeBlock>
+ 
 ```c
 [ "/usr/bin/node", "--experimental-module", "./script", "B", "C" ]
 ```
-</CodeBlock>
+ 
 </blockquote>
 
 After updating `argv`, the handler finishes preparing the file for execution by setting `linux_binprm.interp` to the interpreter path (in this case, the Node binary). Finally, it returns 0 to indicate success preparing the program for execution.
@@ -265,14 +249,13 @@ An exec syscall will always end up in one of two paths:
 
 If you've ever used a Unix-like system, you might've noticed that shell scripts run from a terminal still execute if they don't have a shebang line or `.sh` extension. You can test this out right now if you have a non-Windows terminal handy:
 
-<CodeBlock name='Shell session'>
 ```
 $ echo "echo hello" > ./file
 $ chmod +x ./file
 $ ./file
 hello
 ```
-</CodeBlock>
+ 
 
 (`chmod +x` tells the OS that a file is an executable. You won't be able to run it otherwise.)
 

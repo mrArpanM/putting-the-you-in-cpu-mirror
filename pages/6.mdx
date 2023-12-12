@@ -1,12 +1,4 @@
----
-chapter: 6
-title: Let's Talk About Forks and Cows
-shortname: Fork-Exec
-slug: lets-talk-about-forks-and-cows
-updatedAt: 2023-07-17T17:16:18.079Z
----
-
-import CodeBlock from '../../components/CodeBlock.astro'
+# Chapter 6: Let's Talk About Forks and Cows
 
 The final question: how did we get here? Where do the first processes come from?
 
@@ -20,7 +12,6 @@ The newly running process is referred to as the "child," with the process origin
 
 Cluelessly doubling the same code is pretty useless, so `fork` returns a different value on the parent vs the child. On the parent, it returns the PID of the new child process, while on the child it returns 0. This makes it possible to do different work on the new process so that forking is actually helpful.
 
-<CodeBlock name='main.c'>
 ```c
 pid_t pid = fork();
 
@@ -40,13 +31,12 @@ if (pid == 0) {
 	// Probably continue whatever we were doing before.
 }
 ```
-</CodeBlock>
+ 
 
 Process forking can be a bit hard to wrap your head around. From this point on I will assume you've figured it out; if you have not, check out [this hideous-looking website](https://www.csl.mtu.edu/cs4411.ck/www/NOTES/process/fork/create.html) for a pretty good explainer.
 
 Anyways, Unix programs launch new programs by calling `fork` and then immediately running `execve` in the child process. This is called the *fork-exec pattern*. When you run a program, your computer executes code similar to the following:
 
-<CodeBlock name='launcher.c'>
 ```c
 pid_t pid = fork();
 
@@ -61,7 +51,7 @@ if (pid == 0) {
 
 // Parent program continues here...
 ```
-</CodeBlock>
+ 
 
 ## Mooooo!
 
@@ -85,11 +75,10 @@ Every process on your computer was fork-execed by a parent program, except for o
 
 Want to see a cool instant blackscreen? If you're on macOS or Linux, save your work, open a terminal, and kill the init process (PID 1):
 
-<CodeBlock name='Shell session'>
 ```
 $ sudo kill 1
 ```
-</CodeBlock>
+ 
 
 > *Author's note: knowledge about init processes, unfortunately, only applies to Unix-like systems like macOS and Linux. Most of what you learn from now on will not apply to understanding Windows, which has a very different kernel architecture.*
 > 
@@ -97,7 +86,7 @@ $ sudo kill 1
 
 The init process is responsible for spawning all of the programs and services that make up your operating system. Many of those, in turn, spawn their own services and programs.
 
-<img src='/images/init-process-tree.png' loading='eager' style='max-width: 580px; margin: 0 auto;' alt='A tree of processes. The root node is labeled "init." All child nodes are unlabeled but implied to be spawned by the init process.' width='1400' height='752' />
+<img src='/images/init-process-tree.png' loading='eager' alt='A tree of processes. The root node is labeled "init." All child nodes are unlabeled but implied to be spawned by the init process.' width='1400' height='752' />
 
 Killing the init process kills all of its children and all of their children, shutting down your OS environment.
 
@@ -118,12 +107,11 @@ Your computer boots up in a sequence like the following:
 
 On Linux, the bulk of step 3 (kernel initialization) occurs in the `start_kernel` function in [init/main.c](https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/init/main.c). This function is over 200 lines of calls to various other init functions, so I won't include [the whole thing](https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/init/main.c#L880-L1091) in this article, but I do recommend scanning through it! At the end of `start_kernel` a function named `arch_call_rest_init` is called:
 
-<CodeBlock name='start_kernel @ init/main.c' startLine={1087} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/init/main.c#L1087-L1088'>
 ```c
 	/* Do the rest non-__init'ed, we're now alive */
 	arch_call_rest_init();
 ```
-</CodeBlock>
+ 
 
 > **What does non-\_\_init'ed mean?**
 >
@@ -135,27 +123,24 @@ On Linux, the bulk of step 3 (kernel initialization) occurs in the `start_kernel
 
 `arch_call_rest_init` is nothing but a wrapper function:
 
-<CodeBlock name='init/main.c' startLine={832} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/init/main.c#L832-L835'>
 ```c
 void __init __weak arch_call_rest_init(void)
 {
 	rest_init();
 }
 ```
-</CodeBlock>
+ 
 
 The comment said "do the rest non-\_\_init'ed" because `rest_init` is not defined with the `__init` macro. This means it is not freed when cleaning up init memory:
 
-<CodeBlock name='init/main.c' startLine={689} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/init/main.c#L689-L690'>
 ```c
 noinline void __ref rest_init(void)
 {
 ```
-</CodeBlock>
+ 
 
 `rest_init` now creates a thread for the init process:
 
-<CodeBlock name='rest_init @ init/main.c' startLine={695} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/init/main.c#L695-L700'>
 ```c
 	/*
 	 * We need to spawn init first so that it obtains pid 1, however
@@ -164,19 +149,17 @@ noinline void __ref rest_init(void)
 	 */
 	pid = user_mode_thread(kernel_init, NULL, CLONE_FS);
 ```
-</CodeBlock>
+ 
 
 The `kernel_init` parameter passed to `user_mode_thread` is a function that finishes some initialization tasks and then searches for a valid init program to execute it. This procedure starts with some basic setup tasks; I will skip through these for the most part, except for where `free_initmem` is called. This is where the kernel frees our `.init` sections!
 
-<CodeBlock name='kernel_init @ init/main.c' startLine={1471} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/init/main.c#L1471'>
 ```c
 	free_initmem();
 ```
-</CodeBlock>
+ 
 
 Now the kernel can find a suitable init program to run:
 
-<CodeBlock name='kernel_init @ init/main.c' startLine={1495} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/init/main.c#L1495-L1525'>
 ```c
 	/*
 	 * We try each of these until one succeeds.
@@ -210,7 +193,7 @@ Now the kernel can find a suitable init program to run:
 	panic("No working init found.  Try passing init= option to kernel. "
 	      "See Linux Documentation/admin-guide/init.rst for guidance.");
 ```
-</CodeBlock>
+ 
 
 On Linux, the init program is almost always located at or symbolic-linked to `/sbin/init`. Common inits include [systemd](https://systemd.io/) (which has an abnormally good website), [OpenRC](https://wiki.gentoo.org/wiki/OpenRC/openrc-init), and [runit](http://smarden.org/runit/). `kernel_init` will default to `/bin/sh` if it can't find anything else — and if it can't find `/bin/sh`, something is TERRIBLY wrong.
 
@@ -222,7 +205,6 @@ From this point on, we're at step 4 in the boot process: the init process is run
 
 I was curious how the Linux kernel remaps the bottom half of memory when forking processes, so I poked around a bit. [kernel/fork.c](https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/kernel/fork.c) seems to contain most of the code for forking processes. The start of that file helpfully pointed me to the right place to look:
 
-<CodeBlock name='kernel/fork.c' startLine={8} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/kernel/fork.c#L8-L13'>
 ```c
 /*
  *  'fork.c' contains the help-routines for the 'fork' system call
@@ -231,24 +213,23 @@ I was curious how the Linux kernel remaps the bottom half of memory when forking
  * management can be a bitch. See 'mm/memory.c': 'copy_page_range()'
  */
 ```
-</CodeBlock>
+ 
 
 It looks like this `copy_page_range` function takes some information about a memory mapping and copies the page tables. Quickly skimming through the functions it calls, this is also where pages are set to be read-only to make them COW pages. It checks whether it should do this by calling a function called `is_cow_mapping`.
 
 `is_cow_mapping` is defined back in [include/linux/mm.h](https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/include/linux/mm.h), and returns true if the memory mapping has [flags](http://books.gigatux.nl/mirror/kerneldevelopment/0672327201/ch14lev1sec2.html) that indicate the memory is writeable and isn't shared between processes. Shared memory doesn't need to be COWed because it is designed to be shared. Admire the slightly incomprehensible bitmasking:
 
-<CodeBlock name='include/linux/mm.h' startLine={1541} sourceUrl='https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/include/linux/mm.h#L1541-L1544'>
 ```c
 static inline bool is_cow_mapping(vm_flags_t flags)
 {
 	return (flags & (VM_SHARED | VM_MAYWRITE)) == VM_MAYWRITE;
 }
 ```
-</CodeBlock>
+ 
 
 Back in [kernel/fork.c](https://github.com/torvalds/linux/blob/22b8cc3e78f5448b4c5df00303817a9137cd663f/kernel/fork.c), doing a simple Command-F for `copy_page_range` yields one call from the `dup_mmap` function... which is in turn called by `dup_mm`... which is called by `copy_mm`... which is finally called by the massive `copy_process` function! `copy_process` is the core of the fork function, and, in a way, the centerpoint of how Unix systems execute programs — always copying and editing a template created for the first process at startup.
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/FavUpD_IjVY" title="YouTube video player" frameborder="0" style="aspect-ratio: 16 / 9;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FavUpD_IjVY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen />
 
 ## In Summary...
 
